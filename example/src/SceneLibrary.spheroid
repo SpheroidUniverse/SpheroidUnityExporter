@@ -1,0 +1,115 @@
+fun SceneData() = mutableDynamicOf(
+    sceneNode = Node(),
+    objects = mutableListOf(),
+    animations = mutableListOf()
+)
+
+fun SceneObjectData() = mutableDynamicOf(
+    isVisible = false,
+    isLoading = false,
+    isLoaded = false,
+    isBroken = false,
+    error = null,
+    animationName = null,
+    parent = null,
+    sceneAudio = null
+)
+
+fun startScene(sceneData) {
+    WorldAnchor.default.children.add(sceneData.sceneNode)
+
+    for (animation in sceneData.animations)
+        animation.play(loop = true)
+
+    println("Programm animation is enabled")
+
+    sceneData.sceneTimer = Timer.schedule(period = TimeInterval(seconds = 2)) {
+        updateScene(sceneData)
+        printSceneMetrics(sceneData)
+    }
+}
+
+fun updateScene(sceneData) {
+    val cameraWorldPosition = Scene.camera.worldPosition
+
+    for (obj in sceneData.objects) {
+        if (obj.isLoading || obj.isBroken) continue
+        val nodeWorldPosition = obj.node.worldPosition
+
+        val isVisible =
+            (nodeWorldPosition.x - cameraWorldPosition.x).pow(2) + 
+            (nodeWorldPosition.z - cameraWorldPosition.z).pow(2) <= 
+            obj.viewDistance.pow(2)
+
+        if (isVisible && !obj.isVisible) {
+            if (obj.isLoaded)
+                showSceneObject(obj)
+            else {
+                obj.isLoading = true
+                obj.model.load { ok, error ->
+                    obj.isLoading = false
+                    if (ok) {
+                        obj.isLoaded = true
+                        showSceneObject(obj)
+                    } else {
+                        obj.isBroken = true
+                        obj.error = error
+                        println("Failed to load the model '${this.source.path}'. Cause: $error")
+                    }
+                }
+                var sceneAudio = obj.sceneAudio
+
+                if (sceneAudio) {
+                    sceneAudio.load { ok, error ->
+                        if (ok) {
+                            obj.node.playAudio(this, loop = true)
+                            println("SceneAudio '${this.source.path}' has been loaded.")
+                        } else {
+                            println("Failed to load the SceneAudio '${this.source.path}'. Cause: $error")
+                        }
+                    }
+                }
+            }
+        } else if (!isVisible && obj.isVisible)
+            hideSceneObject(obj)
+    }
+}
+
+var visibleObjectCount = 0
+
+fun showSceneObject(obj) {
+    obj.node.model = obj.model
+    obj.isVisible = true
+    
+    visibleObjectCount = visibleObjectCount + 1
+    println("visibleObjectCount: $visibleObjectCount")
+    
+    if (obj.animationName)
+        obj.node.playAnimation(obj.animationName, loop = true)
+}
+
+fun hideSceneObject(obj) {
+    //TODO прятать весь ModelNode целиком, т.е. удалять его из parent
+}
+
+fun printSceneMetrics(sceneData) {
+    var visibleCount = 0
+    var hiddenCount = 0
+    var loadingCount = 0
+    var loadedCount = 0
+    var brokenCount = 0
+
+    for (obj in sceneData.objects) {
+        if (obj.isVisible)
+            visibleCount = visibleCount + 1
+        else
+            hiddenCount = hiddenCount + 1
+
+        if (obj.isLoading) loadingCount = loadingCount + 1
+        if (obj.isLoaded) loadedCount = loadedCount + 1
+        if (obj.isBroken) brokenCount = brokenCount + 1
+    }
+
+    println("Scene metrics: ${sceneData.objects.size} total, $visibleCount visible, $hiddenCount hidden, $loadingCount loading, " + 
+        "$loadedCount loaded, $brokenCount broken")
+}

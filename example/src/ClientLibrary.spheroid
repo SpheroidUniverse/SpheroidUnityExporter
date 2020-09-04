@@ -1,0 +1,54 @@
+fun loadOne(loadable, context) {
+    loadable.load { ok, error ->
+        if (context.contains("callback")) {
+            if (!ok)
+                context.callback.invoke(false, error)
+            else {
+                println("Asset is loaded: ${loadable.source.path}")
+                context.count = context.count - 1;
+
+                if (context.count == 0)
+                    context.callback.invoke(true, null)
+            }
+        }
+    }
+}
+
+fun loadMany(list, callback) {
+    var count = 0
+
+    for (item in list)
+        if (item)
+            count = count + 1
+
+    val context = mutableDynamicOf(count = count, callback = callback)
+
+    println("Load $count assets...")
+
+    for (item in list)
+        if (item)
+            loadOne(item, context)
+}
+
+fun serverAction(name, callback) {
+    Server.action(name) { response, error ->
+        checkResponse(response, error, callback)
+    }
+}
+
+fun serverActionRequest(name, request, callback) {
+    Server.action(name, request = request) { response, error ->
+        checkResponse(response, error, callback)
+    }
+}
+
+fun checkResponse(response, error, callback) {
+    if (error != null)
+        handleError(error)
+    else
+        callback.invoke(response)
+}
+
+fun handleError(error) {
+    println("Error: $error.")
+}

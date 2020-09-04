@@ -1,0 +1,9 @@
+{
+  "client": [
+    "./Client.spheroid",
+    "./ClientLibrary.spheroid",
+    "./SceneLibrary.spheroid",
+    "./Scene.spheroid"
+  ],
+  "version": "1.0.0"
+}
